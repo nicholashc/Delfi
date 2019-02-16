@@ -5,29 +5,29 @@ pragma solidity ^0.5.4;
 //////////////
 
 contract ERC20 {
-	function balanceOf(address) external view returns(uint256) {}
+	function balanceOf(address _owner) external view returns(uint256 _amount) {}
 }
 
 contract Uniswap {
-	function getEthToTokenInputPrice(uint256) external view returns(uint256) {}
-	function getTokenToEthOutputPrice(uint256) external view returns(uint256) {}
+	function getEthToTokenInputPrice(uint256 _amount) external view returns(uint256 _tokenAmount) {}
+	function getTokenToEthOutputPrice(uint256 _amount) external view returns(uint256 _tokenAmount) {}
 }
 
 contract Eth2Dai {
-	function getBuyAmount(address, address, uint256) external view returns(uint256) {}
-	function getPayAmount(address, address, uint256) external view returns(uint256) {}
+	function getBuyAmount(address _tokenFrom, address _tokenTo, uint256 _amount) external view returns(uint256 _tokenAmount) {}
+	function getPayAmount(address _tokenFrom, address _tokenTo, uint256 _amount) external view returns(uint256 _tokenAmount) {}
 }
 
 contract Bancor {
-	function getReturn(address, address, uint256) external view returns(uint256, uint256) {}
+	function getReturn(address _tokenFrom, address _tokenTo, uint256 _amount) external view returns(uint256 _tokenAmount, uint256 _blank) {}
 }
 
 contract BancorDai {
-	function getReturn(address, address, uint256) external view returns(uint256) {}
+	function getReturn(address _tokenFrom, address _tokenTo, uint256 _amount) external view returns(uint256 _tokenAmount) {}
 }
 
 contract Kyber {
-	function searchBestRate(address, address, uint256, bool) external view returns(address, uint256) {}
+	function searchBestRate(address _tokenFrom, address _tokenTo, uint256 _amount, bool _isPermissionless) external view returns(address _reserveAddress, uint256 _tokenAmount) {}
 }
 
 /////////////////
@@ -46,13 +46,13 @@ contract Delphi {
 	address constant public DAI = 0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359;
 	address constant public WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 	address constant public BNT = 0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C;
-	address constant public UNISWAP = 0x09cabec1ead1c0ba254b09efb3ee13841712be14;
+	address constant public UNISWAP = 0x09cabEC1eAd1c0Ba254B09efb3EE13841712bE14;
 	address constant public ETH2DAI = 0x39755357759cE0d7f32dC8dC45414CCa409AE24e;
 	address constant public BANCOR = 0xCBc6a023eb975a1e2630223a7959988948E664f3;
 	address constant public BANCORDAI = 0x587044b74004E3D5eF2D453b7F8d198d9e4cB558;
 	address constant public BANCORETH = 0xc0829421C1d260BD3cB3E0F06cfE2D52db2cE315;
-	address constant public KYBER = 0x9ae49c0d7f8f9ef4b864e004fe86ac8294e20950;
-	address constant public KYBERETH = 0x00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee;
+	address constant public KYBER = 0x9ae49C0d7F8F9EF4B864e004FE86Ac8294E20950;
+	address constant public KYBERETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
 	///////////////////////////
 	//CONTRACT INSTANTIATIONS//
@@ -71,10 +71,11 @@ contract Delphi {
 	
 	/**
 	 * get an ERC20 token balance
-	 * @param address _token address of token contract
-	 * @param address _owner address of token holder
-	 * @return uint256 _tokenAmount token balance of holder in smallest unit
+	 * @param _token address of token contract
+	 * @param _owner address of token holder
+	 * @return _tokenAmount token balance of holder in smallest unit
 	 */
+
 	function getTokenBalance(
 		address _token, 
 		address _owner
@@ -84,30 +85,30 @@ contract Delphi {
 	returns(
 		uint256 _tokenAmount
 	) {
-		ERC20 token = ERC2O(_token);
+		ERC20 token = ERC20(_token);
 		return token.balanceOf(_owner);
 	}
 
 	/**
 	 * get the non-token ETH balance of an address
-	 * @param address _owner address to check
-	 * @return uint256 balance in wei
+	 * @param _owner address to check
+	 * @return _ethAmount amount in wei
 	 */
-	function getEthBalcne(
-		address _owner
-	)
-	public
+	function getEthBalance(
+	    address _owner
+	) 
+	public 
 	view 
 	returns(
-		uint256 _ethAmount
+	    uint256 _ethAmount
 	) {
-		return _owner.balance;
+	    return _owner.balance;
 	}
 
 	/**
 	 * get the buy price of DAI on uniswap
-	 * @param uin256 amount of ETH being spent in wei
-	 * @return uint256 returned as a rate in wei
+	 * @param _ethAmount amount of ETH being spent in wei
+	 * @return _rate returned as a rate in wei
 	 */
 	function getUniswapBuyPrice(
 		uint256 _ethAmount
@@ -123,8 +124,8 @@ contract Delphi {
 
 	/**
 	 * get the sell price of DAI on uniswap
-	 * @param uin256 amount of ETH being purchased in wei
-	 * @return uint256 returned as a rate in wei
+	 * @param _ethAmount amount of ETH being purchased in wei
+	 * @return _rate returned as a rate in wei
 	 */
 	function getUniswapSellPrice(
 		uint256 _ethAmount
@@ -140,8 +141,8 @@ contract Delphi {
 
 	/**
 	 * get the buy price of DAI on Eth2Dai
-	 * @param uin256 amount of ETH being spent in wei
-	 * @return uint256 returned as a rate in wei
+	 * @param _ethAmount amount of ETH being spent in wei
+	 * @return _rate returned as a rate in wei
 	 */
 	function getEth2DaiBuyPrice(
 		uint256 _ethAmount
@@ -157,8 +158,8 @@ contract Delphi {
 
 	/**
 	 * get the sell price of DAI on Eth2Dai
-	 * @param uin256 amount of ETH being purchased in wei
-	 * @return uint256 returned as a rate in wei
+	 * @param _ethAmount amount of ETH being purchased in wei
+	 * @return _rate returned as a rate in wei
 	 */
 	function getEth2DaiSellPrice(
 		uint256 _ethAmount
@@ -174,8 +175,8 @@ contract Delphi {
 
 	/**
 	 * get the buy price of DAI on Bancor
-	 * @param uint256 amount of ETH being spent in wei
-	 * @return uint256 returned as a rate in wei
+	 * @param _ethAmount amount of ETH being spent in wei
+	 * @return _rate returned as a rate in wei
 	 */
 	function getBancorBuyPrice(
 		uint256 _ethAmount
@@ -196,8 +197,8 @@ contract Delphi {
 
 	/**
 	 * get the sell price of DAI on Bancor
-	 * @param uint256 amount of ETH being purchased in wei
-	 * @return uint256 returned as a rate in wei
+	 * @param _ethAmount amount of ETH being purchased in wei
+	 * @return _rate returned as a rate in wei
 	 */
 	function getBancorSellPrice(
 		uint256 _ethAmount
@@ -210,7 +211,7 @@ contract Delphi {
 		//get an approximate token amount to calculate ETH returned
 		//if there is no recent price, calc current bancor buy price
 		uint256 recentRate;
-		if (block.number > latestPriceAtBlock + 100) {
+		if (block.number > latestRateAtBlock + 100) {
 			recentRate = getBancorBuyPrice(_ethAmount);
 		} else {
 			recentRate = latestRate;	
@@ -220,32 +221,34 @@ contract Delphi {
 		uint256 bntAmount = bancordai.getReturn(DAI, BNT, roughTokenAmount);
 		//convert from bnt to eth
 		//parse tuple return value
-		uint256 ;
+		uint256 ethAmount;
 		(ethAmount,) = bancor.getReturn(BNT, BANCORETH, bntAmount);
-		return (ethAmount * _ethAmount) / 10**18;
+		return (10**18 * roughTokenAmount) / ethAmount;
 	}
 
 	/**
 	 * get the buy price of DAI on Kyber
-	 * @param uint256 amount of ETH being spent in wei
-	 * @return uint256 returned as a rate in wei
+	 * @param _ethAmount amount of ETH being spent in wei
+	 * @return _reserveAddress reserve address with best rate
+	 * @return _rate returned as a rate in wei
 	 */
 	function getKyberBuyPrice(
 		uint256 _ethAmount
 	)
 	public 
 	view
-	returns(
-		uint256 _rate,
-		uint256 _reserveAddress
+	returns(	
+	    address _reserveAddress,
+		uint256 _rate
 	) {
 		return kyber.searchBestRate(KYBERETH, DAI, _ethAmount, true);
 	}
 
 	/**
 	 * get the sell price of DAI on Kyber
-	 * @param uint256 amount of ETH being purchased in wei
-	 * @return uint256 returned as a rate in wei
+	 * @param _ethAmount amount of ETH being purchased in wei
+	 * @return _reserveAddress reserve address with best rate
+	 * @return _rate returned as a rate in wei
 	 */
 	function getKyberSellPrice(
 		uint256 _ethAmount
@@ -253,21 +256,22 @@ contract Delphi {
 	public 
 	view
 	returns(
-		uint256 _rate,
-		uint256 _reserveAddress
+		address _reserveAddress,
+		uint256 _rate
 	) {
 		//get an approximate token amount to calculate ETH returned
 		//if there is no recent price, calc current kyber buy price
 		uint256 recentRate;
-		if (block.number > latestPriceAtBlock + 100) {
+		if (block.number > latestRateAtBlock + 100) {
 			(,recentRate) = getKyberBuyPrice(_ethAmount);
 		} else {
 			recentRate = latestRate;	
 		}
 		uint256 ethAmount;
-		uint256 reserveAddress;
-		(reserveAddress, ethAmount) kyber.searchBestRate(DAI, KYBERETH, _ethAmount, true);
-		return (ethAmount * _ethAmount) / 10**18;
+		address reserveAddress;
+		(reserveAddress, ethAmount) = kyber.searchBestRate(DAI, KYBERETH, _ethAmount, true);
+	    uint256 tokenAmount = (_ethAmount * 10**18) / ethAmount;
+	    return (reserveAddress, (tokenAmount * 10**18) / _ethAmount);
 	}
 
 	////////////
