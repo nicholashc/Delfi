@@ -1,3 +1,42 @@
+/**
+ * DELFI is an on-chain price oracle you can reason about
+ * it provides a liquidity-weighted index of ETH/DAI prices from decentralized exchanges
+ * the price is backed up by the ETH amount required to move the rate more than 5%
+ * this provides a quantifiable threshold of economic activity the price can safely support
+
+                                   ___---___
+                             ___---___---___---___
+                       ___---___---         ---___---___
+                 ___---___---                    ---___---___
+           ___---___---            D E L F I          ---___---___
+     ___---___---                   eth/dai                  ---___---___
+__---___---_________________________________________________________---___---__
+===============================================================================
+ ||||                                                                     ||||
+ |---------------------------------------------------------------------------|
+ |___-----___-----___-----___-----___-----___-----___-----___-----___-----___|
+ / _ \===/ _ \   / _ \===/ _ \   / _ \===/ _ \   / _ \===/ _ \   / _ \===/ _ \
+( (.\ oOo /.) ) ( (.\ oOo /.) ) ( (.\ oOo /.) ) ( (.\ oOo /.) ) ( (.\ oOo /.) )
+ \__/=====\__/   \__/=====\__/   \__/=====\__/   \__/=====\__/   \__/=====\__/
+    |||||||         |||||||         |||||||         |||||||         |||||||
+    |||||||         |||||||         |||||||         |||||||         |||||||
+    |||||||         |||||||         |||||||         |||||||         |||||||
+    |||||||         |||||||         |||||||         |||||||         |||||||
+    |||||||         |||||||         |||||||         |||||||         |||||||
+    |||||||         |||||||         |||||||         |||||||         |||||||
+    |||||||         |||||||         |||||||         |||||||         |||||||
+    |||||||         |||||||         |||||||         |||||||         |||||||
+    (oOoOo)         (oOoOo)         (oOoOo)         (oOoOo)         (oOoOo)
+    J%%%%%L         J%%%%%L         J%%%%%L         J%%%%%L         J%%%%%L
+   ZZZZZZZZZ       ZZZZZZZZZ       ZZZZZZZZZ       ZZZZZZZZZ       ZZZZZZZZZ
+  ===========================================================================
+__|_________________________________________________________________________|__
+_|___________________________________________________________________________|_
+|_____________________________________________________________________________|
+_______________________________________________________________________________
+
+ */
+
 pragma solidity ^0.5.4;
 
 //////////////
@@ -40,10 +79,6 @@ contract Delfi {
 	//STATE VARIABLES//
 	///////////////////
 
-	uint256 public latestRate;
-	uint256 public latestBlock;
-	uint256 public latestCostToMovePrice;
-
 	uint256 constant public ONE_ETH = 10**18;
 	uint256 constant public FIVE_PERCENT = 5;
 	
@@ -71,14 +106,6 @@ contract Delfi {
 	Bancor constant bancor = Bancor(BANCOR);
 	BancorDai constant bancordai = BancorDai(BANCORDAI);
 	Kyber constant kyber = Kyber(KYBER);
-
-	///////////////
-	//CONSTRUCTOR//
-	///////////////
-	
-	constructor() public {
-		updateCurrentRate(); //set initial values
-	}
 
 	///////////
 	//METHODS//
@@ -130,7 +157,7 @@ contract Delfi {
 		uint256 _rate
 	) {
 		uint256 tokenAmount = uniswap.getEthToTokenInputPrice(_ethAmount);
-		return (tokenAmount * 10**18) / _ethAmount;
+		return (tokenAmount * ONE_ETH) / _ethAmount;
 	}
 
 	/**
@@ -147,7 +174,7 @@ contract Delfi {
 		uint256 _rate
 	) {
 		uint256 ethAmount = uniswap.getTokenToEthOutputPrice(_ethAmount);
-		return (ethAmount * 10**18) / _ethAmount;
+		return (ethAmount * ONE_ETH) / _ethAmount;
 	}
 
 	/**
@@ -164,7 +191,7 @@ contract Delfi {
 		uint256 _rate
 	) {
 		uint256 tokenAmount = eth2dai.getBuyAmount(DAI, WETH, _ethAmount);
-		return (tokenAmount * 10**18) / _ethAmount;
+		return (tokenAmount * ONE_ETH) / _ethAmount;
 	}
 
 	/**
@@ -181,7 +208,7 @@ contract Delfi {
 		uint256 _rate
 	) {
 		uint256 ethAmount = eth2dai.getPayAmount(DAI, WETH, _ethAmount);
-		return (ethAmount * 10**18) / _ethAmount;
+		return (ethAmount * ONE_ETH) / _ethAmount;
 	}
 
 	/**
@@ -197,13 +224,13 @@ contract Delfi {
 	returns(
 		uint256 _rate
 	) {
-		//convert from eth to bnt
-		//parse tuple return value
+		/** convert from eth to bnt */
+		/** parse tuple return value */
 		uint256 bntAmount;
 		(bntAmount,) = bancor.getReturn(BANCORETH, BNT, _ethAmount);
-		//convert from bnt to eth
+		/** convert from bnt to eth */
 		uint256 tokenAmount = bancordai.getReturn(BNT, DAI, bntAmount);
-		return (tokenAmount * 10**18) / _ethAmount;
+		return (tokenAmount * ONE_ETH) / _ethAmount;
 	}
 
 	/**
@@ -219,106 +246,14 @@ contract Delfi {
 	returns(
 		uint256 _rate
 	) {
-		//get an approximate token amount to calculate ETH returned
-		//if there is no recent price, calc current bancor buy price
-		uint256 recentRate;
-		if (block.number > latestRate + 100) {
-			recentRate = getBancorBuyPrice(_ethAmount);
-		} else {
-			recentRate = latestRate;	
-		}
-		uint256 roughTokenAmount = (recentRate * _ethAmount) / 10**18;
-		//convert from dai to bnt
+		uint256 roughTokenAmount = (getUniswapBuyPrice(_ethAmount) * _ethAmount) / ONE_ETH;
+		/** convert from dai to bnt*/
 		uint256 bntAmount = bancordai.getReturn(DAI, BNT, roughTokenAmount);
-		//convert from bnt to eth
-		//parse tuple return value
+		/** convert from bnt to eth */
+		/** parse tuple return value */
 		uint256 ethAmount;
 		(ethAmount,) = bancor.getReturn(BNT, BANCORETH, bntAmount);
-		return (10**18 * roughTokenAmount) / ethAmount;
-	}
-
-	/**
-	 * get the buy price of DAI on Kyber
-	 * @param _ethAmount amount of ETH being spent in wei
-	 * @return _reserveAddress reserve address with best rate
-	 * @return _rate returned as a rate in wei
-	 */
-	function getKyberBuyPrice(
-		uint256 _ethAmount
-	)
-	public 
-	view
-	returns(	
-	  address _reserveAddress,
-		uint256 _rate
-	) {
-		return kyber.searchBestRate(KYBERETH, DAI, _ethAmount, true);
-	}
-
-	/**
-	 * get the sell price of DAI on Kyber
-	 * @param _ethAmount amount of ETH being purchased in wei
-	 * @return _reserveAddress reserve address with best rate
-	 * @return _rate returned as a rate in wei
-	 */
-	function getKyberSellPrice(
-		uint256 _ethAmount
-	)
-	public 
-	view
-	returns(
-		address _reserveAddress,
-		uint256 _rate
-	) {
-		//get an approximate token amount to calculate ETH returned
-		//if there is no recent price, calc current kyber buy price
-		uint256 recentRate;
-		if (block.number > latestRate + 100) {
-			(,recentRate) = getKyberBuyPrice(_ethAmount);
-		} else {
-			recentRate = latestRate;	
-		}
-		uint256 ethAmount;
-		address reserveAddress;
-		(reserveAddress, ethAmount) = kyber.searchBestRate(DAI, KYBERETH, _ethAmount, true);
-	    uint256 tokenAmount = (_ethAmount * ONE_ETH) / ethAmount;
-	    return (reserveAddress, (tokenAmount * ONE_ETH) / _ethAmount);
-	}
-
-	/**
-	 * get the most recent saved rate
-	 * cheap to call but information may be outdated
-	 * @return _rate most recent saved ETH/DAI rate in wei
-	 * @return _block block.number the most recent state was saved
-	 * @return _costToMoveFivePercent cost to move the price 5% in wei
-	 */
-	function getLatestSavedRate() 
-	view
-	public
-	returns(
-		uint256 _rate,
-		uint256 _block,
-		uint256 _costToMoveFivePercent
-	) {
-		return (latestRate, latestBlock, latestCostToMovePrice);
-	}
-
-	/**
-	 * updates the price information to the current block and returns this information
-	 * compartively expensive to call but always up to date
-	 * @return _rate most recent saved ETH/DAI rate in wei
-	 * @return _block block.number the most recent state was saved
-	 * @return _costToMoveFivePercent cost to move the price 5% in wei
-	 */
-	function getLatestRate()
-	external
-	returns(
-		uint256 _rate,
-		uint256 _block,
-		uint256 _costToMoveFivePercent
-	) {
-		updateCurrentRate();
-		return (latestRate, latestBlock, latestCostToMovePrice);
+		return (ONE_ETH * roughTokenAmount) / ethAmount;
 	}
 
 	//////////////////////
@@ -331,35 +266,37 @@ contract Delfi {
 	 * @return _costToMoveFivePercent cost to move the price 5% in wei 
 	 */
 	function updateCurrentRate()  
-	internal 
+	view
+	external 
 	returns(
-	  uint256 _rate,
+	 	uint256 _rate,
 		uint256 _costToMoveFivePercent
 	) {
 
-		//find midpoints of each spread
+		/** find midpoints of each spread */
 		uint256[3] memory midPointArray = [
 		    findMidPoint(getUniswapBuyPrice(ONE_ETH), getUniswapSellPrice(ONE_ETH)),
 		    findMidPoint(getBancorBuyPrice(ONE_ETH), getBancorBuyPrice(ONE_ETH)),
 		    findMidPoint(getEth2DaiBuyPrice(ONE_ETH), getEth2DaiSellPrice(ONE_ETH))
 		];
 
-		//find liquidity of pooled exchanges
+		/** find liquidity of pooled exchanges */
 		uint256 uniswapLiquidity = getEthBalance(UNISWAP);
 		uint256 bancorLiquidity = getDaiBalance(BANCORDAI) * ONE_ETH / midPointArray[1]; 
 		uint256 eth2daiRoughLiquidity = getDaiBalance(ETH2DAI) * ONE_ETH / midPointArray[2]; 
         
-		//cost of percent move for pooled exchanges
-		//Q: is it a more complicated function, eg non-linear?
-		uint256 costOfPercentMoveUniswap = (uniswapLiquidity * FIVE_PERCENT) / 100;
-		uint256 costOfPercentMoveBancor = (bancorLiquidity * FIVE_PERCENT) / 100;
+		/** cost of percent move for pooled exchanges */
+		/** 2.5% of liquidity is approximately a 5% price move */
+		uint256 costToMovePriceUniswap = (uniswapLiquidity * FIVE_PERCENT) / 50; 
+		uint256 costToMovePriceBancor = (bancorLiquidity * FIVE_PERCENT) / 50;
 		
-		//divide by price difference
+		/** divide by price difference */
 		uint256 largeBuy = eth2daiRoughLiquidity / 2;
 		uint256 priceMove = getEth2DaiBuyPrice(largeBuy);
 		uint256 priceMovePercent = ((midPointArray[2] * 10000) / priceMove) - 10000;
-		//ensure largeBuy causes a price move more than _percent
-		//increase large buy amount if necessary
+		
+		/** ensure largeBuy causes a price move more than _percent */
+		/** increase large buy amount if necessary */
 		if (priceMovePercent < FIVE_PERCENT * 100) {
 			largeBuy += eth2daiRoughLiquidity - 1;
 			priceMove = getEth2DaiBuyPrice(largeBuy);
@@ -367,16 +304,16 @@ contract Delfi {
 		}
 
 		uint256 ratioOfPriceMove = FIVE_PERCENT * 10000 / priceMovePercent;
- 		uint256 costOfPercentMoveEth2Dai = largeBuy * ratioOfPriceMove / 100;
+ 		uint256 costToMovePriceEth2Dai = largeBuy * ratioOfPriceMove / 100;
 		
-		//information stored in memory arrays to avoid stack depth issues
-		uint256[3] memory costOfPercentMoveArray = [costOfPercentMoveUniswap, costOfPercentMoveBancor, costOfPercentMoveEth2Dai];
+		/** information stored in memory arrays to avoid stack depth issues */
+		uint256[3] memory costOfPercentMoveArray = [costToMovePriceUniswap, costToMovePriceBancor, costToMovePriceEth2Dai];
         
     return calcRatio(midPointArray, costOfPercentMoveArray);
 	}
 	
 	/**
-	 * extention of previous method used to update state
+	 * extension of previous method used to update state
 	 * @return _rate most recent saved ETH/DAI rate in wei
 	 * @return _costToMoveFivePercent cost to move the price 5% in wei 
 	 */
@@ -385,6 +322,7 @@ contract Delfi {
 		uint256[3] memory _costOfPercentMoveArray
 	) 
 	internal
+	pure
 	returns(
 		uint256 _rate,
 		uint256 _costToMoveFivePercent
@@ -392,14 +330,15 @@ contract Delfi {
 	{
 		uint256 totalCostOfPercentMove = _costOfPercentMoveArray[0] + _costOfPercentMoveArray[1] + _costOfPercentMoveArray[2];
 		
-		//calculat proportion of each exchange in the forumla
-		uint256 precision = 10000; //precise to two decimals
+		/** calculate proportion of each exchange in the formula */
+		/** precise to two decimals */
+		uint256 precision = 10000; 
 		uint256[3] memory propotionArray;
 		propotionArray[0] = (_costOfPercentMoveArray[0] * precision) / totalCostOfPercentMove;
 		propotionArray[1] = (_costOfPercentMoveArray[1] * precision) / totalCostOfPercentMove;
 		propotionArray[2] = (_costOfPercentMoveArray[2] * precision) / totalCostOfPercentMove;
 
-		//balance prices
+		/** balance prices */
 		uint256 balancedRate = 
 			(
 				(_midPointArray[0] * propotionArray[0]) + 
@@ -408,16 +347,12 @@ contract Delfi {
 			) 
 			/ precision;
 
-		latestRate = balancedRate;
-		latestBlock = block.number;
-		latestCostToMovePrice = totalCostOfPercentMove;
-
 		return (balancedRate, totalCostOfPercentMove);
 	}
 
 	/**
-	 * utility function to find mean of an array of values
-	 * note: safemath not used on this function because it uses values not at risk overflow
+	 * utility function to find midpoint of two values
+	 * no safe math, yolo
 	 * @param _a first value
 	 * @param _b second value
 	 * @return _midpoint average value
@@ -431,7 +366,7 @@ contract Delfi {
 	returns(
 		uint256 _midpoint
 		) {
-		return _a + _b / 2;
+		return (_a + _b) / 2;
 	}
 
 
