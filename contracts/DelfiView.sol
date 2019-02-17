@@ -378,8 +378,6 @@ contract Delfi {
 	 * non-payable fallback function
 	 * this is redundant but more explicit than not including a fallback
 	 */
-	function() external {
-		require (msg.value == 0);
-	}
+	function() external {}
 
 }
