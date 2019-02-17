@@ -5,47 +5,45 @@ pragma solidity ^0.5.4;
 //////////////
 
 contract ERC20 {
-	function balanceOf(address) external view returns(uint256) {}
+	function balanceOf(address _owner) external view returns(uint256 _amount) {}
 }
 
 contract Uniswap {
-	function getEthToTokenInputPrice(uint256) external view returns(uint256) {}
-	function getTokenToEthOutputPrice(uint256) external view returns(uint256) {}
+	function getEthToTokenInputPrice(uint256 _amount) external view returns(uint256 _tokenAmount) {}
+	function getTokenToEthOutputPrice(uint256 _amount) external view returns(uint256 _tokenAmount) {}
 }
 
 contract Eth2Dai {
-	function getBuyAmount(address, address, uint256) external view returns(uint256) {}
-	function getPayAmount(address, address, uint256) external view returns(uint256) {}
+	function getBuyAmount(address _tokenFrom, address _tokenTo, uint256 _amount) external view returns(uint256 _tokenAmount) {}
+	function getPayAmount(address _tokenFrom, address _tokenTo, uint256 _amount) external view returns(uint256 _tokenAmount) {}
 }
 
 contract Bancor {
-	function getReturn(address, address, uint256) external view returns(uint256, uint256) {}
+	function getReturn(address _tokenFrom, address _tokenTo, uint256 _amount) external view returns(uint256 _tokenAmount, uint256 _blank) {}
 }
 
 contract BancorDai {
-	function getReturn(address, address, uint256) external view returns(uint256) {}
+	function getReturn(address _tokenFrom, address _tokenTo, uint256 _amount) external view returns(uint256 _tokenAmount) {}
 }
 
 contract Kyber {
-	function searchBestRate(address, address, uint256, bool) external view returns(address, uint256) {}
+	function searchBestRate(address _tokenFrom, address _tokenTo, uint256 _amount, bool _isPermissionless) external view returns(address _reserveAddress, uint256 _tokenAmount) {}
 }
 
 /////////////////
 //MAIN CONTRACT//
 /////////////////
 
-contract Delfi {
+contract Delphi {
+
+	using SafeMath for uint256;
 
 	///////////////////
 	//STATE VARIABLES//
 	///////////////////
 
 	uint256 public latestRate;
-	uint256 public latestBlock;
-	uint256 public latestCostToMovePrice;
-
-	uint256 constant public ONE_ETH = 10**18;
-	uint256 constant public FIVE_PERCENT = 5;
+	uint256 public latestRateAtBlock;
 	
 	address constant public DAI = 0x89d24A6b4CcB1B6fAA2625fE562bDD9a23260359;
 	address constant public WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -72,24 +70,19 @@ contract Delfi {
 	BancorDai constant bancordai = BancorDai(BANCORDAI);
 	Kyber constant kyber = Kyber(KYBER);
 
-	///////////////
-	//CONSTRUCTOR//
-	///////////////
-	
-	constructor() public {
-		updateCurrentRate(); //set initial values
-	}
-
 	///////////
 	//METHODS//
 	///////////
 	
 	/**
-	 * get the DAI balance of an address
+	 * get an ERC20 token balance
+	 * @param _token address of token contract
 	 * @param _owner address of token holder
 	 * @return _tokenAmount token balance of holder in smallest unit
 	 */
-	function getDaiBalance(
+
+	function getTokenBalance(
+		address _token, 
 		address _owner
 	) 
 	public 
@@ -97,7 +90,8 @@ contract Delfi {
 	returns(
 		uint256 _tokenAmount
 	) {
-		return dai.balanceOf(_owner);
+		ERC20 token = ERC20(_token);
+		return token.balanceOf(_owner);
 	}
 
 	/**
@@ -222,7 +216,7 @@ contract Delfi {
 		//get an approximate token amount to calculate ETH returned
 		//if there is no recent price, calc current bancor buy price
 		uint256 recentRate;
-		if (block.number > latestRate + 100) {
+		if (block.number > latestRateAtBlock + 100) {
 			recentRate = getBancorBuyPrice(_ethAmount);
 		} else {
 			recentRate = latestRate;	
@@ -249,7 +243,7 @@ contract Delfi {
 	public 
 	view
 	returns(	
-	  address _reserveAddress,
+	    address _reserveAddress,
 		uint256 _rate
 	) {
 		return kyber.searchBestRate(KYBERETH, DAI, _ethAmount, true);
@@ -273,7 +267,7 @@ contract Delfi {
 		//get an approximate token amount to calculate ETH returned
 		//if there is no recent price, calc current kyber buy price
 		uint256 recentRate;
-		if (block.number > latestRate + 100) {
+		if (block.number > latestRateAtBlock + 100) {
 			(,recentRate) = getKyberBuyPrice(_ethAmount);
 		} else {
 			recentRate = latestRate;	
@@ -281,118 +275,88 @@ contract Delfi {
 		uint256 ethAmount;
 		address reserveAddress;
 		(reserveAddress, ethAmount) = kyber.searchBestRate(DAI, KYBERETH, _ethAmount, true);
-	    uint256 tokenAmount = (_ethAmount * ONE_ETH) / ethAmount;
-	    return (reserveAddress, (tokenAmount * ONE_ETH) / _ethAmount);
+	    uint256 tokenAmount = (_ethAmount * 10**18) / ethAmount;
+	    return (reserveAddress, (tokenAmount * 10**18) / _ethAmount);
 	}
 
 	/**
-	 * get the most recent saved rate
-	 * cheap to call but information may be outdated
-	 * @return _rate most recent saved ETH/DAI rate in wei
-	 * @return _block block.number the most recent state was saved
-	 * @return _costToMoveFivePercent cost to move the price 5% in wei
+	 * formula that returns the current spot price and economic value
+	 * @param _ethAmount amount of eth in wei
+	 * @param _percent price movement as a percentage
+	 * @return _rate current weighted spot price in wei
+	 * @return _costToMoveXPercent cost in wei to move influence the price by _percent
 	 */
-	function getLatestSavedRate() 
-	view
-	public
+	function getCurrentRate(
+		uint256 _ethAmount,
+		uint256 _percent
+	) 
+	view 
+	external 
 	returns(
 		uint256 _rate,
-		uint256 _block,
-		uint256 _costToMoveFivePercent
+		uint256 _costToMoveXPercent
 	) {
-		return (latestRate, latestBlock, latestCostToMovePrice);
-	}
-
-	/**
-	 * updates the price information to the current block and returns this information
-	 * compartively expensive to call but always up to date
-	 * @return _rate most recent saved ETH/DAI rate in wei
-	 * @return _block block.number the most recent state was saved
-	 * @return _costToMoveFivePercent cost to move the price 5% in wei
-	 */
-	function getLatestRate()
-	external
-	returns(
-		uint256 _rate,
-		uint256 _block,
-		uint256 _costToMoveFivePercent
-	) {
-		updateCurrentRate();
-		return (latestRate, latestBlock, latestCostToMovePrice);
-	}
-
-	//////////////////////
-	//INTERNAL FUNCTIONS//
-	//////////////////////
-
-	/**
-	 * updates the current rate in state
-	 * @return _rate most recent saved ETH/DAI rate in wei
-	 * @return _costToMoveFivePercent cost to move the price 5% in wei 
-	 */
-	function updateCurrentRate()  
-	internal 
-	returns(
-	  uint256 _rate,
-		uint256 _costToMoveFivePercent
-	) {
-
+		require (_percent >= 0 && _percent <= 100, "input must be a valid percentage");
+		
 		//find midpoints of each spread
-		uint256[3] memory midPointArray = [
-		    findMidPoint(getUniswapBuyPrice(ONE_ETH), getUniswapSellPrice(ONE_ETH)),
-		    findMidPoint(getBancorBuyPrice(ONE_ETH), getBancorBuyPrice(ONE_ETH)),
-		    findMidPoint(getEth2DaiBuyPrice(ONE_ETH), getEth2DaiSellPrice(ONE_ETH))
-		];
+		uint256 uniswapMidPoint = findMidPoint(getUniswapBuyPrice(_ethAmount), getUniswapSellPrice(_ethAmount));
+		uint256 bancorMidPoint = findMidPoint(getBancorBuyPrice(_ethAmount), getBancorBuyPrice(_ethAmount));
+		uint256 eth2daiMidPoint = findMidPoint(getEth2DaiBuyPrice(_ethAmount), getEth2DaiSellPrice(_ethAmount));
 
 		//find liquidity of pooled exchanges
 		uint256 uniswapLiquidity = getEthBalance(UNISWAP);
-		uint256 bancorLiquidity = getDaiBalance(BANCORDAI) * ONE_ETH / midPointArray[1]; 
-		uint256 eth2daiRoughLiquidity = getDaiBalance(ETH2DAI) * ONE_ETH / midPointArray[2]; 
-        
+		uint256 bancorLiquidity = getTokenBalance(BANCORETH, BANCORDAI);
+
 		//cost of percent move for pooled exchanges
-		//Q: is it a more complicated function, eg non-linear?
-		uint256 costOfPercentMoveUniswap = (uniswapLiquidity * FIVE_PERCENT) / 100;
-		uint256 costOfPercentMoveBancor = (bancorLiquidity * FIVE_PERCENT) / 100;
-		
-		//divide by price difference
-		uint256 largeBuy = eth2daiRoughLiquidity / 2;
-		uint256 priceMove = getEth2DaiBuyPrice(largeBuy);
-		uint256 priceMovePercent = ((midPointArray[2] * 10000) / priceMove) - 10000;
-		//ensure largeBuy causes a price move more than _percent
-		//increase large buy amount if necessary
-		if (priceMovePercent < FIVE_PERCENT * 100) {
-			largeBuy += eth2daiRoughLiquidity - 1;
-			priceMove = getEth2DaiBuyPrice(largeBuy);
-			priceMovePercent = ((midPointArray[2] * 10000) / priceMove) - 10000;
+		uint256 costOfPercentMoveUniswap = (uniswapLiquidity * _percent) / 100;
+		uint256 costOfPercentMoveBancor = (bancorLiquidity * _percent) / 100;
+
+		//cost of percent move for orderbook exchanges
+		uint256 costOfPercentMoveEth2Dai = _ethAmount;
+		uint256 diffOfPercentMove = (eth2daiMidPoint * _percent) / 100; //eth amount of x% move
+		bool thresholdFound;
+
+		//loop through order book to figure out bid size that moves order book more than _percent
+		while (!thresholdFound) {
+			if (getEth2DaiBuyPrice(costOfPercentMoveEth2Dai) <= eth2daiMidPoint - diffOfPercentMove) {
+				thresholdFound = true;	
+			} else {
+				costOfPercentMoveEth2Dai += 10**19; //10 ETH steps;
+			}
 		}
 
-		uint256 ratioOfPriceMove = FIVE_PERCENT * 10000 / priceMovePercent;
- 		uint256 costOfPercentMoveEth2Dai = largeBuy * ratioOfPriceMove / 100;
-		
 		//information stored in memory arrays to avoid stack depth issues
+		uint256[3] memory midPointArray = [uniswapMidPoint, bancorMidPoint, eth2daiMidPoint];
 		uint256[3] memory costOfPercentMoveArray = [costOfPercentMoveUniswap, costOfPercentMoveBancor, costOfPercentMoveEth2Dai];
-        
-    return calcRatio(midPointArray, costOfPercentMoveArray);
+
+		//calc rate and cost to move 
+		return calcRatio(
+			midPointArray,
+			costOfPercentMoveArray
+		);
 	}
 	
 	/**
-	 * extention of previous method used to update state
-	 * @return _rate most recent saved ETH/DAI rate in wei
-	 * @return _costToMoveFivePercent cost to move the price 5% in wei 
+	 * continue calculation of weighted rate and cost to move market
+	 * @param _midPointArray array of spot price midpoints
+	 * @param _costOfPercentMoveArray array of wei cost to move each exchange _percent
+	 * @return _rate current weighted spot price in wei
+	 * @return _costToMoveXPercent cost in wei to move influence the price by _percent
 	 */
 	function calcRatio(
-		uint256[3] memory _midPointArray,
-		uint256[3] memory _costOfPercentMoveArray
+			uint256[3] memory _midPointArray,
+			uint256[3] memory _costOfPercentMoveArray
 	) 
+	pure
 	internal
 	returns(
 		uint256 _rate,
-		uint256 _costToMoveFivePercent
+		uint256 _costToMoveXPercent
 	)
 	{
 		uint256 totalCostOfPercentMove = _costOfPercentMoveArray[0] + _costOfPercentMoveArray[1] + _costOfPercentMoveArray[2];
 		
-		//calculat proportion of each exchange in the forumla
+		//calculated proportion of each exchange in the forumla
 		uint256 precision = 10000; //precise to two decimals
 		uint256[3] memory propotionArray;
 		propotionArray[0] = (_costOfPercentMoveArray[0] * precision) / totalCostOfPercentMove;
@@ -408,16 +372,38 @@ contract Delfi {
 			) 
 			/ precision;
 
-		latestRate = balancedRate;
-		latestBlock = block.number;
-		latestCostToMovePrice = totalCostOfPercentMove;
-
 		return (balancedRate, totalCostOfPercentMove);
+	}
+
+
+	/////////////
+	//UTILITIES//
+	/////////////
+	
+	/**
+	 * utility function to find mean of an array of values
+	 * @param  _data array of values
+	 * @return _mean average value;
+	 */
+	//@dev is this function needed?
+	function findMean(
+		uint256[] memory _data
+	) 
+	internal 
+	pure 
+	returns(
+		uint256 _mean
+	) {
+		require (_data.length >= 2);
+		uint256 sum;
+		for (uint256 i = 0; i < _data.length; i++) {
+			sum = sum.add(_data[i]);
+		}
+		return sum / _data.length;
 	}
 
 	/**
 	 * utility function to find mean of an array of values
-	 * note: safemath not used on this function because it uses values not at risk overflow
 	 * @param _a first value
 	 * @param _b second value
 	 * @return _midpoint average value
@@ -431,7 +417,8 @@ contract Delfi {
 	returns(
 		uint256 _midpoint
 		) {
-		return _a + _b / 2;
+		//@dev Q is safemath needed here?
+		return (_a.add(_b)).div(2);
 	}
 
 
@@ -441,8 +428,71 @@ contract Delfi {
 
 	/**
 	 * non-payable fallback function
-	 * this is redundant but more explicit than not including a fallback
 	 */
 	function() external {}
 
+}
+
+/**
+ * @title SafeMath
+ * @dev Unsigned math operations with safety checks that revert on error
+ */
+library SafeMath {
+    /**
+     * @dev Multiplies two unsigned integers, reverts on overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-solidity/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b);
+
+        return c;
+    }
+
+    /**
+     * @dev Integer division of two unsigned integers truncating the quotient, reverts on division by zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Solidity only automatically asserts when dividing by 0
+        require(b > 0);
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    /**
+     * @dev Subtracts two unsigned integers, reverts on overflow (i.e. if subtrahend is greater than minuend).
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a);
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Adds two unsigned integers, reverts on overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a);
+
+        return c;
+    }
+
+    /**
+     * @dev Divides two unsigned integers and returns the remainder (unsigned integer modulo),
+     * reverts when dividing by zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b != 0);
+        return a % b;
+    }
 }
