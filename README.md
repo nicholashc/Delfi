@@ -7,7 +7,7 @@ Visit out [aggressivly unstyled web 1.0 site](https://delfi.surge.sh/) for web 3
 
 To interact with Delfi on the Ethereum mainnet, please include one of the following interfaces in your contract. They offer slightly different functionality for different use cases. The first contract at 0x04acle... offers a slightly more expensive method that returns up-to-the-block price information and saves this rate in state. It also offers a very inexpensive method that returns the most recent saved rate information. This contract is best for uses cases that may only need periodic price updates. The second contract only offers a view method, which is most appropriate for web3 queries.
 
-```
+```javascript
 pragma solidity ^0.5.4;
 
 /**
