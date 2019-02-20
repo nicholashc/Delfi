@@ -43,7 +43,7 @@ contract DelfiInterface {
 /**
  * contract at 0xde1f1ea07370b0ee063c2306c240b1e579c4ff34
  */
-contract DelfiViewInterace {
+contract DelfiViewInterface {
 	/**
 	 * get up-to-the-block ETH/DAI rate
 	 * view method; nothing saved in state
