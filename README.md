@@ -1,6 +1,6 @@
 # Delfi
 
-*Note from Aug 1, 2019: we've neglected Delfi over the last few months, but are happy to see it's still cranking out price data on mainnet. The demand for on-chain data has continued to explode since the project started. Please see the section beginning from "Roadmap" for the latest thoughts/plans and a renewed commitment to development. The other content is from the original ETH Denver 2019 hackathon.* 
+***Aug 1, 2019**: we've neglected Delfi over the last few months, but are happy to see it's still cranking out price data on mainnet. The demand for on-chain data has continued to explode since the project started. Please see the section beginning from ["Roadmap"](#Roadmap) for the latest thoughts/plans and a renewed commitment to development. The other content is from the original ETH Denver 2019 hackathon.* 
 
 ### About
 Delfi is a simple onchain price oracle you can reason about. It provides a liquidity-weighted index of ETH/DAI prices from decentralized exchanges. The price is backed up by the ETH amount required to move the rate more than 5%. This provides a quantifiable threshold of economic activity the price can safely support. The first version provides a dynamic weighted index of the ETH/DAI pair accross the three onchain dentralized exchanges with the most ETH/DAI volume and liquidity: Uniswap, Eth2Dai, and Bancor.
