@@ -7,7 +7,7 @@ Delfi is a simple onchain price oracle you can reason about. It provides a liqui
 
 Delfi won the Open Track Finalist award and Most Innovative award at EthDenver 2019!
 
-Visit our [aggressivly unstyled web 1.0 site](https://delfi.surge.sh/) for web 3.0 data. Find the contracts on the Ethereum mainnet at [0x04acle...](https://etherscan.io/address/0x04ac1eb4bdcce9cf16b3e44d9cf3ece2d4911906#code) and [0xde1f1...](https://etherscan.io/address/0xde1f1ea07370b0ee063c2306c240b1e579c4ff34#code).
+Visit our [aggressively unstyled web 1.0 site](https://delfi.surge.sh/) for web 3.0 data. Find the contracts on the Ethereum mainnet at [0x04acle...](https://etherscan.io/address/0x04ac1eb4bdcce9cf16b3e44d9cf3ece2d4911906#code) and [0xde1f1...](https://etherscan.io/address/0xde1f1ea07370b0ee063c2306c240b1e579c4ff34#code).
 
 To interact with Delfi on the Ethereum mainnet, please include one of the following interfaces in your contract. They offer slightly different functionality for different use cases. The first contract at 0x04acle... offers a slightly more expensive method that returns up-to-the-block price information and saves this rate in state. It also offers a very inexpensive method that returns the most recent saved rate information. This contract is best for uses cases that may only need periodic price updates. The second contract at 0xde1f1... only offers a view method, which is most appropriate for web3 queries or slightly cheaper onchain calls that require up-to-the-block price information at the time of execution.
 
