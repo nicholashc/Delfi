@@ -60,7 +60,7 @@ contract DelfiViewInterface {
 
 The first version of Delfi was a quick and dirty proof of concept built at ETH Denver. It was focused on providing on-chain ETH/DAI spot price at the time of excution & the cost of manipulating that price by x percent. The goals and scope were, and still are: 
 
-1) provide current-to-the-block price data feed, with a quantifyable value of its trustworthiness 
+1) provide current-to-the-block price data, with a quantifyable value attactched to its trustworthiness 
 2) the projcet should have no costs other than time and ask for no payment other than gas
 3) the code should be unstoppable, unpausable, and without priveleged permissions
 
