@@ -96,7 +96,7 @@ Even within these narrow bounds, Delfi has room to grow. Some planned near(-to-m
 - 	Synthetix (while not directly connected) recently had a serious issue with the integrity of one of their oracles
 - 	How can Delfi guard against these situations affecting price data?
 
-#### A Public Good Should Public 
+#### A Public Good Should Be Public 
 - 	Share ideas with relevant people/teams/contacts via twitter/telegram/discord/etc
 - 	Contribute to other projects working on oracles and related areas
 - 	Submit as a resource to directories like EthHub and BUILD Guide
